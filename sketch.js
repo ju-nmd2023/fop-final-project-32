@@ -14,16 +14,20 @@ let fishGifs = [];
 let score = 0;
 let customFont;
 let backgroundImage;
+let endScreenImage; // Add a variable for the end screen image
 let gameTime = 0; // Track in-game time (milliseconds)
+let gameOverTime = 0; // Track the time when the game is over
+let arrowKeysEnabled = true; // Track whether arrow keys are enabled or not
 
 function preload() {
-    playerGif = loadImage('penguin.gif');
+    playerGif = loadImage('penguin2.gif');
     obstacleGif = loadImage('obstacle1.gif');
     fishGifs[0] = loadImage('fish1.gif');
     fishGifs[1] = loadImage('fish2.gif');
     fishGifs[2] = loadImage('fish3.gif');
     customFont = loadFont('pixelfont.ttf');
     backgroundImage = loadImage('background.gif');
+    endScreenImage = loadImage('penguin-end-screen.gif'); //end screen image
 }
 
 function setup() {
@@ -46,18 +50,24 @@ function draw() {
 
     // Increment gameTime by the frame duration (in milliseconds)
     gameTime += deltaTime; //deltaTime indicates the time it took for the previous frame to execute and it adds to gameTime
+
+    // arrow keys will be enabled after 1 sec
+    if (gameIsOver && millis() - gameOverTime > 1000) {
+     arrowKeysEnabled = true;
+     }
 }
 
 function drawStartPage() {
     textAlign(CENTER, CENTER);
     fill(0);
-    textSize(32);
+    textSize(38);
     text('Press LEFT or RIGHT arrow key to START', width / 2, height / 2);
 }
 
 function drawEndPage() {
+    image(endScreenImage, width / 2, height / 2, width, height); //Display end screen image
     textAlign(CENTER, CENTER);
-    fill(0);
+    fill(255);
     textSize(62);
     text('GAME OVER', width / 2, height / 2 - 100);
     textSize(54);
@@ -91,6 +101,8 @@ function drawGamePage() {
 
         if (player.hits(obstacles[i])) {
             gameIsOver = true;
+            gameOverTime = millis(); // Record the time when the game is over
+            arrowKeysEnabled = false; // Disable arrow keys
         }
 
         if (obstacles[i].offscreen()) { //Removes obstacles that have moved off-screen
@@ -113,7 +125,7 @@ function drawGamePage() {
     }
 
     textAlign(CENTER, TOP);
-    textSize(32);
+    textSize(46);
     fill(0);
     text('Score: ' + score, width / 2, 20);
 
@@ -124,7 +136,12 @@ function drawGamePage() {
 
 function generateObstacle() {
     let obstacleSpeed = calculateObstacleSpeed();
-    obstacles.push(new Obstacle(obstacleSpeed));
+    let obstacleType = random(1); // Randomly select between obstacle types
+    if (obstacleType < 0.5) {
+        obstacles.push(new Obstacle(obstacleSpeed, obstacleGif)); // Use obstacle1.gif
+    } else {
+        obstacles.push(new Obstacle(obstacleSpeed, loadImage('obstacle2.gif'))); // Use obstacle2.gif
+    }
 }
 
 function generateFish() {
@@ -151,7 +168,7 @@ function calculateFishSpeed() {
 
 function keyPressed() {
     if (!gameStarted || gameIsOver) {
-        if (keyCode === LEFT_ARROW || keyCode === RIGHT_ARROW) {
+        if (arrowKeysEnabled && (keyCode === LEFT_ARROW || keyCode === RIGHT_ARROW)) {
             resetGame();
             gameStarted = true;
         }
@@ -177,10 +194,17 @@ class Player {
         this.y = height - 100;
         this.speed = 10;
         this.size = 100;
+        this.isMirrored = false;
     }
 
     show() {
-        image(playerGif, this.x, this.y, this.size, this.size);
+        push();
+        translate(this.x, this.y);
+        if (this.isMirrored) {
+            scale(-1, 1); // Flip horizontally when right arrow key pressed
+        }
+        image(playerGif, 0, 0, this.size, this.size);
+        pop();
     }
 
     move() {
@@ -194,11 +218,10 @@ class Player {
 
     setDirection(keyCode) {
         if (keyCode === LEFT_ARROW) {
-            this.x -= this.speed;
+            this.isMirrored = false;
         } else if (keyCode === RIGHT_ARROW) {
-            this.x += this.speed;
+            this.isMirrored = true;
         }
-        this.x = constrain(this.x, this.size / 2, width - this.size / 2);
     }
 
     hits(obstacle) {
@@ -217,11 +240,12 @@ class Player {
 }
 
 class Obstacle {
-    constructor(speed) {
-        this.size = 200;
+    constructor(speed, obstacleImage) {
+        this.size = obstacleImage === obstacleGif ? 200 : 100; // Set size based on the obstacle image
         this.x = random(this.size / 2, width - this.size / 2);
         this.y = 0 - this.size / 2;
         this.speed = speed;
+        this.image = obstacleImage; // Store the obstacle image
     }
 
     move() {
@@ -233,9 +257,12 @@ class Obstacle {
     }
 
     show() {
-        image(obstacleGif, this.x, this.y, this.size, this.size);
+        let scaledWidth = this.image.width * 0.5;
+        let scaledHeight = this.image.height * 0.5;
+        image(this.image, this.x, this.y, scaledWidth, scaledHeight);
     }
 }
+
 
 class Fish {
     constructor(img, points, speed) {
