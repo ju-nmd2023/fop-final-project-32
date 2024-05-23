@@ -10,10 +10,15 @@ let lastFishTime = 0;
 let maxObstacles = 30;
 let playerGif;
 let obstacleGif;
+let obstacleGif1;
+let obstacleGif2;
+let obstacleGif3;
 let fishGifs = [];
+let textColor = 0;
 let score = 0;
 let customFont;
 let backgroundImage;
+let startScreenImage;
 let endScreenImage; // Add a variable for the end screen image
 let gameTime = 0; // Track in-game time (milliseconds)
 let gameOverTime = 0; // Track the time when the game is over
@@ -21,13 +26,16 @@ let arrowKeysEnabled = true; // Track whether arrow keys are enabled or not
 
 function preload() {
     playerGif = loadImage('penguin2.gif');
-    obstacleGif = loadImage('obstacle1.gif');
+    obstacleGif1 = loadImage('obstacle1.gif');
+    obstacleGif2 = loadImage('obstacle2.gif');
+    obstacleGif3 = loadImage('obstacle3.gif');
     fishGifs[0] = loadImage('fish1.gif');
     fishGifs[1] = loadImage('fish2.gif');
     fishGifs[2] = loadImage('fish3.gif');
     customFont = loadFont('pixelfont.ttf');
     backgroundImage = loadImage('background.gif');
-    endScreenImage = loadImage('penguin-end-screen.gif'); //end screen image
+    startScreenImage = loadImage('penguin-start-screen.gif');
+    endScreenImage = loadImage('penguin-end-screen.gif');
 }
 
 function setup() {
@@ -58,21 +66,30 @@ function draw() {
 }
 
 function drawStartPage() {
+    image(startScreenImage, width / 2, height / 2, width, height); // Start screen image as background
     textAlign(CENTER, CENTER);
-    fill(0);
-    textSize(38);
-    text('Press LEFT or RIGHT arrow key to START', width / 2, height / 2);
+    if (millis() % 1000 < 500) {
+        fill(255);
+    } else {
+        fill(0);
+    }
+    textSize(42);
+    text('Press LEFT or RIGHT arrow key to START', width / 2, height / 2 + 100);
 }
 
 function drawEndPage() {
     image(endScreenImage, width / 2, height / 2, width, height); //Display end screen image
     textAlign(CENTER, CENTER);
-    fill(255);
-    textSize(62);
+    if (millis() % 1000 < 500) {
+        fill(255);
+    } else {
+        fill(0);
+    }
+    textSize(82);
     text('GAME OVER', width / 2, height / 2 - 100);
-    textSize(54);
+    textSize(64);
     text('SCORE: ' + score, width / 2, height / 2);
-    textSize(24);
+    textSize(34);
     text('Press LEFT or RIGHT arrow key to RESTART', width / 2, height / 2 + 100);
 }
 
@@ -81,18 +98,27 @@ function drawGamePage() {
     player.move();
 
     let currentTime = millis();
-    if (currentTime - lastObstacleTime > obstacleInterval) { //Checking if it's time to generate a new obstacle
-        if (obstacles.length < maxObstacles) {//if there are less obstacles than the maximum set amount
-            generateObstacle(); //a new obstacle is generated
+    if (!gameIsOver) {
+        // Toggle text color every half a second
+        if (currentTime % 1000 < 500) {
+            textColor = 255;
+        } else {
+            textColor = 0;
         }
-        lastObstacleTime = currentTime;
-        obstacleInterval = random(800, 1000); //a random value between 800-1200 millis for the next obstacle generation
     }
 
     if (currentTime - lastFishTime > fishInterval) {
         generateFish();
         lastFishTime = currentTime;
         fishInterval = random(100, 1000);
+    }
+
+    if (currentTime - lastObstacleTime > obstacleInterval) { //Checking if it's time to generate a new obstacle
+        if (obstacles.length < maxObstacles) {//if there are less obstacles than the maximum set amount
+            generateObstacle(); //a new obstacle is generated
+        }
+        lastObstacleTime = currentTime;
+        obstacleInterval = random(100, 1000); //a random value between 800-1200 millis for the next obstacle generation
     }
 
     for (let i = obstacles.length - 1; i >= 0; i--) { //Loops through all the obstacles currently on the screen
@@ -125,24 +151,27 @@ function drawGamePage() {
     }
 
     textAlign(CENTER, TOP);
-    textSize(46);
-    fill(0);
+    textSize(56);
+    fill(textColor);
     text('Score: ' + score, width / 2, 20);
 
     let currentSpeed = obstacles.length > 0 ? obstacles[0].speed : 0;
-    textSize(24);
-    text('Speed: ' + currentSpeed.toFixed(2), 140, 20);
+    textSize(36);
+    text('Speed: ' + currentSpeed.toFixed(2), 200, 20);
 }
 
 function generateObstacle() {
     let obstacleSpeed = calculateObstacleSpeed();
-    let obstacleType = random(1); // Randomly select between obstacle types
-    if (obstacleType < 0.5) {
-        obstacles.push(new Obstacle(obstacleSpeed, obstacleGif)); // Use obstacle1.gif
+    let obstacleType = random(100); //random obstacle generation 0-30 ; 30-80; 80-100
+    if (obstacleType < 30) {
+        obstacles.push(new Obstacle(obstacleSpeed, obstacleGif1));
+    } else if (obstacleType < 80) {
+        obstacles.push(new Obstacle(obstacleSpeed, obstacleGif2, true));
     } else {
-        obstacles.push(new Obstacle(obstacleSpeed, loadImage('obstacle2.gif'))); // Use obstacle2.gif
+        obstacles.push(new Obstacle(obstacleSpeed, obstacleGif3));
     }
 }
+
 
 function generateFish() {
     let fishSpeed = calculateFishSpeed();
@@ -158,7 +187,7 @@ function generateFish() {
 
 function calculateObstacleSpeed() {
     // Determine obstacle speed based on gameTime
-    return 5 + 0.1 * (gameTime / 1000); // Increase speed gradually over time
+    return 5 + 0.2 * (gameTime / 1000); // Increase speed gradually over time
 }
 
 function calculateFishSpeed() {
@@ -213,7 +242,13 @@ class Player {
         } else if (keyIsDown(RIGHT_ARROW)) {
             this.x += this.speed;
         }
-        this.x = constrain(this.x, this.size / 2, width - this.size / 2);
+    
+        // Wrap around the screen horizontally
+        if (this.x < 0 - this.size / 2) {
+            this.x = width + this.size / 2;
+        } else if (this.x > width + this.size / 2) {
+            this.x = 0 - this.size / 2;
+        }
     }
 
     setDirection(keyCode) {
@@ -240,15 +275,34 @@ class Player {
 }
 
 class Obstacle {
-    constructor(speed, obstacleImage) {
-        this.size = obstacleImage === obstacleGif ? 200 : 100; // Set size based on the obstacle image
+    constructor(speed, obstacleImage, followsPlayer = false) {
+        this.image = obstacleImage;
+        this.followsPlayer = followsPlayer;
+        if (obstacleImage === obstacleGif1) {
+            this.size = 150; // Hitbox size for obstacle1
+            this.imageSize = createVector(430, 199); // Original image size
+        } else if (obstacleImage === obstacleGif2) {
+            this.size = 200; // Hitbox size for obstacle2
+            this.imageSize = createVector(206 * 1.5, 397 * 1.5); // Resized image size by x 150%
+        } else if (obstacleImage === obstacleGif3) {
+            this.size = 100; // Hitbox size for obstacle3
+            this.imageSize = createVector(273 * 0.3, 517 * 0.3); // Resized image size by x 30%
+        }
         this.x = random(this.size / 2, width - this.size / 2);
         this.y = 0 - this.size / 2;
         this.speed = speed;
-        this.image = obstacleImage; // Store the obstacle image
     }
 
     move() {
+        if (this.followsPlayer) {
+            // The speed of obstacle following
+            let followSpeed = 5; // Adjustable
+            if (this.x < player.x) {
+                this.x += followSpeed;
+            } else if (this.x > player.x) {
+                this.x -= followSpeed;
+            }
+        }
         this.y += this.speed;
     }
 
@@ -257,11 +311,21 @@ class Obstacle {
     }
 
     show() {
-        let scaledWidth = this.image.width * 0.5;
-        let scaledHeight = this.image.height * 0.5;
-        image(this.image, this.x, this.y, scaledWidth, scaledHeight);
+        if (this.image === obstacleGif3) {
+            imageMode(CENTER);
+            image(this.image, this.x, this.y, this.imageSize.x, this.imageSize.y);
+        } else {
+            let angle = atan2(player.y - this.y, player.x - this.x) - HALF_PI; // - HALF_PI (90 degrees) to make the images' bottom face the player
+            push();
+            translate(this.x, this.y);
+            rotate(angle);
+            imageMode(CENTER);
+            image(this.image, 0, 0, this.imageSize.x * 0.5, this.imageSize.y * 0.5);
+            pop();
+        }
     }
 }
+
 
 
 class Fish {
